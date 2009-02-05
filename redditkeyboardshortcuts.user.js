@@ -43,7 +43,7 @@ var log = function () {
      'd — Down-vote current article', '\n',
      '? — Display help'];
 
-  var links = jQuery('.linkcompressed');
+  var links = jQuery('#siteTable .linkcompressed');
 
   var current = 0;
 
