@@ -1,19 +1,38 @@
+// -*- coding: utf-8 -*-
 // ==UserScript==
 // @name           Reddit keyboard shortcuts
 // @namespace      http://simulacra.in
 // @description    Add some keyboard shortcuts to reddit
 // @include        http://reddit.com/*
-// @include        http://*.reddit.com/*
-// @exclude        http://reddit.com/*/comments
-// @exclude        http://*.reddit.com/*/comments
+// @include        http://reddit.com/r/*
+// @include        http://www.reddit.com/*
+// @include        http://www.reddit.com/r/*
+// @exclude        http://reddit.com/*/comments/*
+// @exclude        http://reddit.com/r/*/comments/*
+// @exclude        http://www.reddit.com/*/comments/*
+// @exclude        http://www.reddit.com/r/*/comments/*
 // ==/UserScript==
 
 // Version 0.1 — <2007-08-29 Wed>
 // Version 0.2 — <2007-09-16 Sun>
 // Version 0.3 — <2007-10-18 Thu>
 // Version 0.4 — <2007-10-20 Sat>
+// Version 0.5 — <2009-02-05 Thu>
+
+var log = function () {
+  if (typeof unsafeWindow.console != 'undefined' && typeof unsafeWindow.console.log != 'undefined') {
+    unsafeWindow.console.log.apply(unsafeWindow.console, arguments);
+  }
+};
 
 (function () {
+  if (typeof unsafeWindow.jQuery == 'undefined') {
+    log('jQuery not present on page');
+    return;
+  }
+
+  var jQuery = unsafeWindow.jQuery;
+
   var helpText =
     ['Keyboard shortcuts include: ', '\n',
      'j — Go to the next article', '\n',
@@ -24,139 +43,91 @@
      'd — Down-vote current article', '\n',
      '? — Display help'];
 
-  var table = document.getElementById('siteTable');
-  if (!table) {
-    return;
-  }
-
-  // get the next and previous page links
-  var links = document.getElementsByTagName('a');
-  var nextLink = Array.filter(links, function (element) {
-      return element.textContent && 'next' === element.textContent;
-    })[0];
-  var previousLink = Array.filter(links, function (element) {
-      return element.textContent && 'prev' === element.textContent;
-    })[0];
-
-  // Get all rows that have a id that starts with ‘titlerow’
-  var trs = table.getElementsByTagName('tr');
-  trs = Array.filter(trs, function (element) {
-      var tds = element.getElementsByTagName('td');
-      if (/^titlerow.*/.test(tds[tds.length - 1].id)) {
-        // For convenience’s sake, some custom properties
-        element.titleCell = tds[tds.length - 1];
-        var articleId = element.titleCell.id.replace(/[a-z]/g, '');
-        element.upDiv = document.getElementById('up' + articleId);
-        element.downDiv = document.getElementById('down' + articleId);
-        return true;
-      }
-    });
-
-  if (!trs || !trs.length) {
-    return;
-  }
+  var links = jQuery('.linkcompressed');
 
   var current = 0;
 
-  var toggleHighlight = function (cell) {
-    if (cell.highlighted) {
-      cell.style.backgroundColor = cell.originalBackgroundColor;
-      cell.highlighted = false;
+  var highlightColor = '#FFB';
+
+  var toggleHighlight = function () {
+    var currentLink = jQuery(links[current]);
+    if (currentLink.hasClass('highlighted')) {
+      jQuery(currentLink).css('background-color', '#FFF');
+      currentLink.removeClass('highlighted');
     } else {
-      cell.originalBackgroundColor = cell.style.backgroundColor;
-      cell.highlighted = true;
-      cell.style.backgroundColor = '#FFC';
+      jQuery(currentLink).css('background-color', highlightColor);
+      currentLink.addClass('highlighted');
     }
   };
 
-  toggleHighlight(trs[current].titleCell);
-
-  var getClickEvent = function () {
-    var evt = document.createEvent("MouseEvents");
-    evt.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
-    return evt;
-  };
-
-  var getMouseDownEvent = function () {
-    var evt = document.createEvent("MouseEvents");
-    evt.initMouseEvent("mousedown", true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
-    return evt;
-  };
+  // highlight the first link
+  toggleHighlight();
 
   var scroller = (function () {
-      function getElementY(element) {
-        var offsetY = 0;
-        var parent;
-
-        for (parent = element; parent; parent = parent.offsetParent) {
-          if (parent.offsetTop) {
-            offsetY += parent.offsetTop;
-          }
-        }
-        return offsetY;
-      }
-
-      return {
-      showElement: function (element) {
-          var position = getElementY(element);
-          var height = document.body.offsetHeight;
-          var scrollPosition = window.pageYOffset;
-
-          if ((height + scrollPosition - position) < 10 || (position - scrollPosition) < 10) {
-            window.scrollTo(0, position);
-          }
-        }
-      };
-    })();
-
-  var openLink = function (cell) {
-    if (!cell) {
-      return;
+    function getElementY(element) {
+      return jQuery(element).position().top;
     }
-    var a = cell.getElementsByTagName('a')[0];
-    a.dispatchEvent(getMouseDownEvent());
-    window.open(a.href);
+
+    return {
+      showElement: function (element) {
+        var position = getElementY(element);
+        var height = unsafeWindow.document.body.offsetHeight;
+        var scrollPosition = unsafeWindow.pageYOffset;
+
+        if ((height + scrollPosition - position) < 10 || (position - scrollPosition) < 10) {
+          unsafeWindow.scrollTo(0, position);
+        }
+      }
+    };
+  })();
+
+  var openCurrentLink = function () {
+    var currentElement = jQuery(links[current]);
+    var currentLink = currentElement.find('a.title');
+    currentLink.mousedown(); // fire reddit's link tracking
+    unsafeWindow.open(currentLink.attr('href'));
   };
 
   var actions = {
-  106: function () { // j -- move to next item
-      if (current < (trs.length - 1)) {
-          toggleHighlight(trs[current].titleCell);
-          current = current + 1;
-          toggleHighlight(trs[current].titleCell);
-          scroller.showElement(trs[current]);
-      } else {
-        if (nextLink) {
-          window.location.href = nextLink.href;
-        }
+    106: function () { // j -- move to next item
+      if (current == links.length - 1) {
+        // we're at the last link
+        return;
       }
+      toggleHighlight();
+      current++;
+      toggleHighlight();
+      scroller.showElement(links[current]);
     },
-  107: function () { // k  -- move to previous item
-      if (current) {
-        toggleHighlight(trs[current].titleCell);
-        current--;
-        toggleHighlight(trs[current].titleCell);
-        scroller.showElement(trs[current]);
-      } else {
-        if (previousLink) {
-          window.location.href = previousLink.href;
-        }
+
+    107: function () { // j -- move to next item
+      if (!current) {
+        // we're at the first link
+        return;
       }
+      toggleHighlight();
+      current--;
+      toggleHighlight();
+      scroller.showElement(links[current]);
     },
-  118: function () { // v -- open item in a new tab/window
-      openLink(trs[current].titleCell);
+
+    63: function () { // ? - show help
+      unsafeWindow.window.alert(helpText.join(''));
     },
-  117: function () { // up arrow - upvote article
-      trs[current].upDiv.dispatchEvent(getClickEvent());
+
+    118: openCurrentLink, // v -- open item in a new tab/window,
+
+    117: function () { // up arrow - upvote article
+      jQuery(links[current]).find('.up').click();
     },
-  100: function () { // down arrow - downvote article
-      trs[current].downDiv.dispatchEvent(getClickEvent());
+
+    100: function () { // down arrow - downvote article
+      jQuery(links[current]).find('.down').click();
     },
-  63: function () { // ? - show help
-      window.alert(helpText.join(''));
-    },
-  99: function () { // c - display current article's comments page
-      //TODO
+
+    99: function () { // c -- comments page
+      var href = jQuery(links[current]).find('a.comments').attr('href');
+      unsafeWindow.window.location.href = href;
     }
   };
 
@@ -166,8 +137,8 @@
   var handleKeyPress = function (event) {
     var tagName = event.target.tagName;
     if (ignoreTheseTags.filter(function (i) {
-          return i === tagName;
-        }).length) {
+        return i === tagName;
+      }).length) {
       return;
     }
 
@@ -178,5 +149,5 @@
     }
   };
 
-  document.addEventListener('keypress', handleKeyPress, true);
- })();
+  unsafeWindow.document.addEventListener('keypress', handleKeyPress, true);
+})();
