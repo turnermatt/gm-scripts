@@ -3,12 +3,8 @@
 // @name           Reddit keyboard shortcuts
 // @namespace      http://simulacra.in
 // @description    Add some keyboard shortcuts to reddit
-// @include        http://reddit.com/*
-// @include        http://reddit.com/r/*
 // @include        http://www.reddit.com/*
 // @include        http://www.reddit.com/r/*
-// @exclude        http://reddit.com/*/comments/*
-// @exclude        http://reddit.com/r/*/comments/*
 // @exclude        http://www.reddit.com/*/comments/*
 // @exclude        http://www.reddit.com/r/*/comments/*
 // ==/UserScript==
@@ -37,8 +33,9 @@ var log = function () {
     ['Keyboard shortcuts include: ', '\n',
      'j — Go to the next article', '\n',
      'k — Go to the previous article', '\n',
-     'v — Open current article in a new tab or window (You may need to configure the popup blocker to allow popups from reddit)', '\n',
-     "c — Open current article's comments page (TODO)", '\n',
+     'v — Open current article in a new tab (You may need to configure the popup blocker to allow popups from reddit)', '\n',
+     'ENTER — Open current article without opening a new tab', '\n',
+     "c — Open current article's comments page", '\n',
      'u — Up-vote current article', '\n',
      'd — Down-vote current article', '\n',
      '? — Display help'];
@@ -81,11 +78,16 @@ var log = function () {
     };
   })();
 
-  var openCurrentLink = function () {
+  var openCurrentLink = function (sameWindow) {
     var currentElement = jQuery(links[current]);
     var currentLink = currentElement.find('a.title');
     currentLink.mousedown(); // fire reddit's link tracking
-    unsafeWindow.open(currentLink.attr('href'));
+    var url = currentLink.attr('href');
+    if (sameWindow) {
+      unsafeWindow.window.location.href = url;
+    } else {
+      unsafeWindow.open(url);
+    }
   };
 
   var actions = {
@@ -100,7 +102,7 @@ var log = function () {
       scroller.showElement(links[current]);
     },
 
-    107: function () { // j -- move to next item
+    107: function () { // k -- move to next item
       if (!current) {
         // we're at the first link
         return;
@@ -128,6 +130,10 @@ var log = function () {
     99: function () { // c -- comments page
       var href = jQuery(links[current]).find('a.comments').attr('href');
       unsafeWindow.window.location.href = href;
+    },
+
+    13: function () { // Enter key -- show current link in the same window
+      openCurrentLink(true);
     }
   };
 
